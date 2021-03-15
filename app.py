@@ -1,21 +1,21 @@
 from SPARQLWrapper import SPARQLWrapper, JSON
 #from pandas import json_normalize
 import pandas as pd
+from sparqlwikidata import sparql_wikidata
 
 
 
 def search_wikidata(item):      
   sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
-  sparql.setQuery("""
+  sparql_query = """
           SELECT DISTINCT ?item ?itemLabel ?itemDescription WHERE {
             ?item ?label "ياسر عرفات"@ar.
             ?article schema:about ?item;
               schema:isPartOf <https://en.wikipedia.org/>.
             SERVICE wikibase:label { bd:serviceParam wikibase:language "ar". }
           }
-      """)
-  sparql.setReturnFormat(JSON)
-  return sparql.query().convert()
+      """ 
+  return sparql_wikidata(sparql_query)
   
 
 named_entities = ('ياسر عرفات')
