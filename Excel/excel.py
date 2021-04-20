@@ -49,5 +49,3 @@ class Excel():
             print (item)
                 #print("Accessing one single value (eg. DSPName): {0}".format(item.arabic_name))
             
-excel = Excel()
-excel.open_excel_file()
