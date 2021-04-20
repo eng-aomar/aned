@@ -42,7 +42,6 @@ class Excel():
                 values.append(english_name)
             item = Person(*values)
             items.append(item)
-        print_vlaues(items)
     @staticmethod
     def print_vlaues(items):
         for item in items:
