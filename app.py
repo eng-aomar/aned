@@ -53,12 +53,15 @@ def string_split_ex(unsplit):
 #print(string_split_ex(input_string))
 #print(extract_wikidata(results))
 
-awraq_entitis = ('القدس','ياسر عرفات','عبد السلام فياض',)
+awraq_entitis = ('القدس','محمود عباس','عبد السلام فياض',)
 for awraq_entity in awraq_entitis:
     try:
         print(awraq_entity)
         results = search_wikidata(awraq_entity)
         data = extract_wikidata(results)
-        Mongodb.insert_wikidata(data)
+        if data.count:
+            Mongodb.insert_wikidata(data)
+        else:
+            pass    
     except:
         pass
