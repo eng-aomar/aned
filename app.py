@@ -1,67 +1,83 @@
-from SPARQLWrapper import SPARQLWrapper, JSON
-#from pandas import json_normalize
-import pandas as pd
-from sparqlwikidata import sparql_wikidata
+from SPARQLWrapper import JSON, SPARQLWrapper
+
 from Connection.DBConnection import Mongodb
-def search_wikidata(awaraq_entity_label):
-  sparql_query = (
-               'SELECT DISTINCT ?item ?itemLabel ?itemDescription (GROUP_CONCAT(DISTINCT(?altLabel); separator = ", ") AS ?altLabel_list) WHERE {'
-                        f'?item ?label "{awaraq_entity_label}"@ar.'
-                        '?article schema:about ?item;'
-                        "schema:isPartOf <https://en.wikipedia.org/>;"
-                        'OPTIONAL { ?item skos:altLabel ?altLabel . FILTER (lang(?altLabel) = "ar") }'
-                        'SERVICE wikibase:label { bd:serviceParam wikibase:language "ar" .}'         
-                        '}'
-                        'GROUP BY ?item ?itemLabel ?itemDescription'
-  )
-  return sparql_wikidata(sparql_query)
+from Excel.excel import Excel
+#from pandas import json_normalize
+from sparqlwikidata import sparql_wikidata
+import json
 
 
-def extract_wikidata(json_results):
-  data = []
-  for result in results['results']['bindings']:
-      datum={}  
-      datum['entity_uri'] = result["item"]["value"]
-      datum['entity_label'] = result["itemLabel"]["value"]
-      datum['entity_descrption'] = result["itemDescription"]["value"]
-      datum['entity_alias'] = result["altLabel_list"]["value"]
-      data.append(datum)
-  return data
+def search_wikidata_arabic_label(Person_arabic_label):
+    sparql_query = (
+        ' SELECT DISTINCT ?item ?itemLabel ?itemDescription ?entity_type ?main_category (GROUP_CONCAT(DISTINCT(?altLabel); separator = ", ") AS ?altLabel_list) WHERE {'
+                            f'?item ?label "{Person_arabic_label}"@ar.'
+                            '?item wdt:P31 ?entity_type .'
+                            'MINUS { ?item wdt:P31 wd:Q4167410}'
+                            'OPTIONAL{    ?item wdt:P910 ?main_category}'
+                            '?article schema:about ?item;'
+                            "schema:isPartOf <https://en.wikipedia.org/>;"
+                            'OPTIONAL { ?item skos:altLabel ?altLabel . FILTER (lang(?altLabel) = "ar") }'
+                            'SERVICE wikibase:label { bd:serviceParam wikibase:language "ar" .}'         
+                            '}'
+                            'GROUP BY ?item ?itemLabel ?itemDescription ?entity_type ?main_category'
+    )
+    return sparql_wikidata(sparql_query)
 
 
+def search_wikidata_arabic_altlabel(Person_arabic_label):
+    sparql_query = (
+        ' SELECT DISTINCT ?item ?itemLabel ?itemDescription ?entity_type ?main_category (GROUP_CONCAT(DISTINCT(?altLabel); separator = ", ") AS ?altLabel_list) WHERE {'
+        f'?item ?altLabel "{Person_arabic_label}"@ar.'
+        '?item wdt:P31 ?entity_type .'
+        'MINUS { ?item wdt:P31 wd:Q4167410}'
+        'OPTIONAL{    ?item wdt:P910 ?main_category}'
+        '?article schema:about ?item;'
+        "schema:isPartOf <https://en.wikipedia.org/>;"
+        'OPTIONAL { ?item skos:altLabel ?altLabel . FILTER (lang(?altLabel) = "ar") }'
+        'SERVICE wikibase:label { bd:serviceParam wikibase:language "ar" .}'
+        '}'
+        'GROUP BY ?item ?itemLabel ?itemDescription ?entity_type ?main_category'
+    )
+    return sparql_wikidata(sparql_query)
+res_list = []
 
-def print_data(results):
-      pass
-    #results_df = pd.json_normalize(results['results']['bindings'])
-    #results_df[['item.value', 'itemLabel.value', 'itemDescription.value']]
+def extract_wikidata(d):
+    for k, v in d.items():
+        if isinstance(v, dict):
+            extract_wikidata(v)
+        else :
+            print("{0} : {1}".format(k, v))
+            if k == 'bindings':
+                
+                for index in range(len(v)):
+                    data = {}
+                    for key, val in v[index].items():
+                        data[key] = val['value']
+                    res_list.append(data)
 
-input_string = """Name,Phone,Address
-Mike Smith,15554218841,123 Nice St, Roy, NM, USA
-Anita Hernandez,15557789941,425 Sunny St, New York, NY, USA
-Guido van Rossum,315558730,Science Park 123, 1098 XG Amsterdam, NL"""
 
+def extract_Person_Informaton(results, arabic_name):
+    extract_wikidata(results)
+    if res_list:
+        Mongodb.insert_wikidata(res_list)
+    else:
+        pass
 
-def string_split_ex(unsplit):
-    results = []
+xl_worksheet = Excel.open_excel_file()
+person_names = Excel.load_excel_data(xl_worksheet)
 
-    # Bonus points for using splitlines() here instead,
-    # which will be more readable
-    for line in unsplit.split('\n')[1:]:
-        results.append(line.split(',', maxsplit=2))
-    return results
-
-#print(string_split_ex(input_string))
-#print(extract_wikidata(results))
-
-awraq_entitis = ('القدس','محمود عباس','عبد السلام فياض',)
-for awraq_entity in awraq_entitis:
+for person in person_names:
     try:
-        print(awraq_entity)
-        results = search_wikidata(awraq_entity)
-        data = extract_wikidata(results)
-        if data.count:
-            Mongodb.insert_wikidata(data)
-        else:
-            pass    
+        person_found = Mongodb.insert_person(person)
+        if person_found is None:
+            label_results = search_wikidata_arabic_label(person['arabic_name'])
+            extract_Person_Informaton(label_results, person['arabic_name'])
+            altlabel_results = search_wikidata_arabic_altlabel(
+                person['arabic_name'])
+            extract_Person_Informaton(altlabel_results, person['arabic_name'])
+
     except:
         pass
+
+
+
